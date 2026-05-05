@@ -38,6 +38,21 @@ func main() {
 
 	// Our updated ordering window
 	http.HandleFunc("/skills", func(w http.ResponseWriter, r *http.Request) {
+		// --- THE NEW CORS SECURITY CLEARANCE ---
+		// Tell the browser: "I allow requests from Angular (port 4200)"
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:4200")
+		// Tell the browser: "Angular is allowed to use these methods"
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		// Tell the browser: "Angular is allowed to send JSON headers"
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		// The browser sends a quick "OPTIONS" request first to check the rules. 
+		// If it's an OPTIONS request, we just say "OK" and stop here.
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 
 		switch r.Method {
