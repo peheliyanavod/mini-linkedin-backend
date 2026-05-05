@@ -158,6 +158,60 @@ func main() {
 		}
 	})
 
+	// --- NEW ENDPOINT: GET A SPECIFIC USER'S SKILLS ---
+	http.HandleFunc("/users/skills", func(w http.ResponseWriter, r *http.Request) {
+		// Standard CORS setup
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:4200")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+
+		if r.Method == http.MethodGet {
+			// Get the user ID from the URL (e.g., /users/skills?user_id=1)
+			userID := r.URL.Query().Get("user_id")
+			if userID == "" {
+				http.Error(w, "Missing user ID", http.StatusBadRequest)
+				return
+			}
+
+			// THE MAGIC SQL JOIN!
+			// We ask for the skill ID and Name from the 'skills' table, 
+			// but only where the skill ID matches the junction table for our specific user!
+			query := `
+				SELECT skills.id, skills.skill_name 
+				FROM skills 
+				JOIN user_skills ON skills.id = user_skills.skill_id 
+				WHERE user_skills.user_id = ?
+			`
+			
+			rows, err := db.Query(query, userID)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			defer rows.Close()
+
+			var userSkills []Skill
+			for rows.Next() {
+				var s Skill
+				if err := rows.Scan(&s.ID, &s.Name); err != nil {
+					log.Println(err)
+					continue
+				}
+				userSkills = append(userSkills, s)
+			}
+			json.NewEncoder(w).Encode(userSkills)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	fmt.Println("Server is running on port 8080...")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
