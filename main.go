@@ -42,7 +42,7 @@ func main() {
 		// Tell the browser: "I allow requests from Angular (port 4200)"
 		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:4200")
 		// Tell the browser: "Angular is allowed to use these methods"
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE, PUT")
 		// Tell the browser: "Angular is allowed to send JSON headers"
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
@@ -100,6 +100,58 @@ func main() {
 			newSkill.ID = int(newID)
 			w.WriteHeader(http.StatusCreated)
 			json.NewEncoder(w).Encode(newSkill)
+
+
+		// --- 3. THE DELETE REQUEST (Delete) ---
+		case http.MethodDelete:
+			// Read the "?id=" part from the URL
+			idStr := r.URL.Query().Get("id")
+			
+			// If they forgot to send an ID, tell them it's a bad request
+			if idStr == "" {
+				http.Error(w, "Missing skill ID", http.StatusBadRequest)
+				return
+			}
+
+			// Delete the skill from the database where the ID matches
+			_, err := db.Exec("DELETE FROM skills WHERE id = ?", idStr)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			// Send back a success message
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]string{"message": "Skill deleted successfully"})
+			
+			
+		// --- 4. THE PUT REQUEST (Update) ---
+		case http.MethodPut:
+			// 1. Get the ID from the URL (e.g., ?id=5)
+			idStr := r.URL.Query().Get("id")
+			if idStr == "" {
+				http.Error(w, "Missing skill ID", http.StatusBadRequest)
+				return
+			}
+
+			// 2. Read the new JSON data (the updated skill name)
+			var updatedSkill Skill
+			if err := json.NewDecoder(r.Body).Decode(&updatedSkill); err != nil {
+				http.Error(w, "Invalid input", http.StatusBadRequest)
+				return
+			}
+
+			// 3. Run the SQL UPDATE command
+			_, err := db.Exec("UPDATE skills SET skill_name = ? WHERE id = ?", updatedSkill.Name, idStr)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			// 4. Send a success response
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]string{"message": "Skill updated successfully"})
+			
 
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
